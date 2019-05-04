@@ -18,8 +18,17 @@
 
 // Renders dummy components if set to true.
 // Always set to false before exporting STL files!
-DEBUG = true;
+DEBUG = false;
 
+// activate separate parts to create the different STLs
+UpperPart = true;
+LowerPart = false;
+
+// deside if DHT22 in wind tunnel
+// and BMP280 as additional option
+// or only BMP280 in wind tunnel
+DHT22 = false;
+BMP280 = true;
 
 
 /* ==== CONFIGURATION ======================================================= */
@@ -53,6 +62,15 @@ screwcorners        =  5;       // Number of lines a screw hole consists of
 // --- DHT22 Dimensions ---
 dht22_height        = 15.5;     // Width
 dht22_extra         =  1.3;
+
+// --- BMP280 Dimensions ---
+bmp280_length       = 15.2;
+bmp280_width        = 11.4;
+bmp280_thickness    =  2.6;
+bmp280_hole_dist    = 10.0;
+bmp280_hole_diam    = 3.0;
+// messure hole in wind tunnel for BMP280
+bmp280_messure_hole = 4.0;
 
 // --- MCU Dimensions ---
 mcu_length          = 52.0;     // Distance between mounting holes, long edge
@@ -101,6 +119,24 @@ module dummy_DHT22() {
         translate([10.0 - 0.75 + 0.5, 0, -1]) {
             cylinder(d=3.0, h=7.7);
         }
+    }
+}
+/*
+ * Renders a BMP280 (Optional temperature, humidity and air pressure sensor).
+ */
+module dummy_BMP280() {
+    difference() {
+        union() {
+            cube([bmp280_length, bmp280_width, bmp280_thickness], center=true);
+         }
+        {
+        translate([bmp280_hole_dist/2, 3.5, -bmp280_thickness+1/2]) {
+            cylinder(d=bmp280_hole_diam, h=bmp280_thickness+1);
+            }
+       translate([-bmp280_hole_dist/2, 3.5, -bmp280_thickness+1/2]) {
+            cylinder(d=bmp280_hole_diam, h=bmp280_thickness+1);
+            }
+        }        
     }
 }
 
@@ -197,14 +233,16 @@ module lowerPartAdd() {
         translate([-mcu_length/2, -mcu_width/2, -thickness / 2]) cylinder(d=diam, h=dist);
     }
 
-    // bolts for BMP180
+    // bolts for BMP280
+    if (DHT22 && BMP280) {
     translate([13.0, -45, 0]) rotate([0, 0, 90]) {
         dist = 6.0;
         diam = 6.0;
-        bmpl = 14.5 / 2;
-        bmpw = 9.0 / 2;
+        bmpl = bmp280_width / 2;
+        bmpw = bmp280_hole_dist / 2;
         translate([bmpl,  bmpw, thickness / 2]) cylinder(d=diam, h=dist);
         translate([bmpl, -bmpw, thickness / 2]) cylinder(d=diam, h=dist);
+        }
     }
 
     // inlet pipes
@@ -257,8 +295,16 @@ module lowerPartAdd() {
     }
 
     // DHT22 back
+    if (DHT22){
     translate([-10.5, 17, (dht22_height + thickness) / 2]) rotate([0, 0, 45]) {
         cube([20.0, 3.0, dht22_height], center=true);
+        }
+    }
+    if(BMP280 && !DHT22){
+        // BMP280 back
+         translate([-15, 19, (dht22_height + thickness) / 2]) rotate([0, 0, 30]) {
+            cube([22.0, 3.0, dht22_height], center=true);
+            }
     }
 }
 
@@ -301,20 +347,22 @@ module lowerPartSub() {
         cube([40.0, 32.0, thickness * 2], center=true);
     }
 
-    // drill holes for BMP180
-    translate([13.0, -45, -2]) rotate([0, 0, 90]) {
-        dist = 6.0;
-        diam = 6.0;
-        bmpl = 14.5 / 2;
-        bmpw = (13.75 - 5.0) / 2;
-        translate([bmpl,  bmpw, thickness / 2]) cylinder(d=screwhole, h=screwlength, $fn=screwcorners);
-        translate([bmpl, -bmpw, thickness / 2]) cylinder(d=screwhole, h=screwlength, $fn=screwcorners);
-    }
+    // drill holes for BMP280
+    if(BMP280 && DHT22){
+        translate([13.0, -45, -2]) rotate([0, 0, 90]) {
+            dist = 6.0;
+            diam = 6.0;
+            bmpl = 14.5 / 2;
+            bmpw = (13.75 - 5.0) / 2;
+            translate([bmpl,  bmpw, thickness / 2]) cylinder(d=screwhole, h=screwlength, $fn=screwcorners);
+            translate([bmpl, -bmpw, thickness / 2]) cylinder(d=screwhole, h=screwlength, $fn=screwcorners);
+        }
+         // pin strip opening for BMP180
+        rotate([180, 180, 0]) translate([-13, 27, thickness / 2 - 0.5]) {
+            cube([16.0, 12.0, thickness * 2], center=true);
+        }
+   }
 
-    // pin strip opening for BMP180
-    rotate([180, 180, 0]) translate([-13, 27, thickness / 2 - 0.5]) {
-        cube([16.0, 12.0, thickness * 2], center=true);
-    }
 
     // dust apron
     translate([31.0 - 4.5 - 1.6, -12.0, 11.0 + thickness / 2]) {
@@ -351,22 +399,38 @@ module lowerPartSub() {
     translate([0, -(length + 10)/2, -0.5]) cube([length, 10, 100], center=true);
 
     // DHT22 opening
-    translate([-18, 24.5, (dht22_height + 2 + thickness)/2]) rotate([0, 0, 45]) {
-        cube([15.0, 5.0, dht22_height + 2], center=true);
+    if(DHT22){
+        translate([-18, 24.5, (dht22_height + 2 + thickness)/2]) rotate([0, 0, 45]) {
+            cube([15.0, 5.0, dht22_height + 2], center=true);
+        }
+        translate([-10, 20, (dht22_height + 2 + thickness)/2]) rotate([90, 180, 45 + 180]) {
+            translate([0, 0, 1.7/2]) translate([-(5.1/2), 0, 6/2]) cube([21, dht22_height + 2, 7.7], center=true);
+        }
     }
-    translate([-10, 20, (dht22_height + 2 + thickness)/2]) rotate([90, 180, 45 + 180]) {
-        translate([0, 0, 1.7/2]) translate([-(5.1/2), 0, 6/2]) cube([21, dht22_height + 2, 7.7], center=true);
-    }
+    // BMP280 opening
+    if(BMP280 && !DHT22){
+        translate([-23, 17, thickness + bmp280_width / 2+1]) rotate([90, -90, 41 + 180]) 
+            cube([bmp280_length, bmp280_width, bmp280_thickness], center=true);
+        // mess channel opening
+        translate([-20, 19, thickness + bmp280_width / 2]) 
+                rotate([90, -90, 45 + 180]) cylinder(d=bmp280_messure_hole, h=6, center=false);
+          // pin strip opening for BMP180 next to wind tunnel
+         translate([-25, 11, thickness / 2 - 0.5]) rotate([180, 180, 30]){
+            cube([4.0, 4.0, thickness * 2], center=true);
+        }
+   }
 }
 
 /*
  * Construct the lower part.
  */
 module lowerPart() {
-    translate([0, 0, thickness/2]) {
-        difference() {       // How do you carve an elephant?
-            lowerPartAdd();    // Get a block of wood, and then just
-            lowerPartSub();    // cut away what does not look like an elephant.
+    if(LowerPart){
+        translate([0, 0, thickness/2]) {
+            difference() {       // How do you carve an elephant?
+                lowerPartAdd();    // Get a block of wood, and then just
+                lowerPartSub();    // cut away what does not look like an elephant.
+            }
         }
     }
 }
@@ -439,10 +503,12 @@ module upperPartSub() {
  * Construct the upper part.
  */
 module upperPart() {
-    color("orange") translate([0, 0, dht22_height + thickness*1.5]) {
-        difference() {
-            upperPartAdd();
-            upperPartSub();
+    if(UpperPart){
+        color("orange") translate([0, 0, dht22_height + thickness*1.5]) {
+            difference() {
+                upperPartAdd();
+                upperPartSub();
+            }
         }
     }
 }
@@ -455,9 +521,17 @@ module upperPart() {
  * Render dummy components if DEBUG is enabled.
  */
 if (DEBUG) {
-    translate([0.0, 0.0, 37.0]) rotate([0, 180, 90]) dummy_SDS011();
+//    translate([0.0, 0.0, 37.0]) rotate([0, 180, 90]) dummy_SDS011();
     translate([0.0, 0.0, 6.5]) rotate([0, 180, 135]) dummy_NodeMCU();
-    translate([-10, 20, 15.1/2 + thickness]) rotate([90, 180, 45 + 180]) dummy_DHT22();
+    if(DHT22){
+        translate([-10, 20, 15.1/2 + thickness]) rotate([90, 180, 45 + 180]) dummy_DHT22();
+    }
+    if(BMP280 && DHT22){
+        color("blue") translate([13, -36, thickness + 6 + bmp280_thickness / 2]) rotate([180, 180, 0]) dummy_BMP280();
+    }
+    if(BMP280 && !DHT22){
+        color("blue") translate([-23, 17, thickness + bmp280_width / 2+1]) rotate([90, -90, 41 + 180]) dummy_BMP280();
+    }
 }
 
 
